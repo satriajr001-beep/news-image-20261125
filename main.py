@@ -1,35 +1,36 @@
 #!/usr/bin/env python3
-"""Write the 25 November 2026 world-news summary image to /output/entry.png.
+"""Emit the 25 November 2026 news poster as /output/entry.png.
 
-The image is bundled in this repository. If entry.png sits next to this
-program it is copied byte for byte; otherwise the base64 bundle entry.png.b64
-is decoded (the GitHub connector only pushes text, so the PNG travels as
-base64 — the bytes written are identical either way). Deterministic: two runs
-write identical bytes. No network.
+The poster bytes live in this repository. Prefer the PNG sitting beside
+this file; when it is missing, decode the base64 twin instead. Both paths
+yield exactly the same bytes, so two runs write identical output. The
+program uses no network and reads nothing outside this directory.
 """
-import base64
-import os
-import shutil
-import sys
+import base64, sys
+from os import environ
+from pathlib import Path
 
-HERE = os.path.dirname(os.path.abspath(__file__))
-PNG = os.path.join(HERE, "entry.png")
-B64 = os.path.join(HERE, "entry.png.b64")
+ROOT = Path(__file__).resolve().parent
+# The PNG and its base64 twin carry the same poster; the twin is here
+# because the GitHub connector only pushes text files, never binaries.
+PNG_FILE = ROOT / "entry.png"
+B64_FILE = ROOT / "entry.png.b64"
 
 
-def main():
-    out_dir = os.environ.get("OUTPUT_DIR", "/output")
-    os.makedirs(out_dir, exist_ok=True)
-    dst = os.path.join(out_dir, "entry.png")
-    if os.path.exists(PNG):
-        with open(PNG, "rb") as fsrc, open(dst, "wb") as fdst:
-            shutil.copyfileobj(fsrc, fdst, length=1024 * 1024)
-    else:
-        with open(B64, "rb") as fsrc, open(dst, "wb") as fdst:
-            base64.decode(fsrc, fdst)
-    os.chmod(dst, 0o644)
-    return 0
+def payload():
+    """Poster bytes, from the PNG when present, else its base64 twin."""
+    if PNG_FILE.is_file():
+        return PNG_FILE.read_bytes()
+    return base64.b64decode(B64_FILE.read_bytes())
+
+
+def run():
+    out = Path(environ.get("OUTPUT_DIR", "/output"))
+    out.mkdir(parents=True, exist_ok=True)
+    dest = out / "entry.png"
+    dest.write_bytes(payload())
+    dest.chmod(0o644)
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    raise SystemExit(run())
